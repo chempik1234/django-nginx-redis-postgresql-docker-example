@@ -1,0 +1,4 @@
+/.venv/
+/task_project/env/
+/task_project/README.Docker.md
+/task_project/db/

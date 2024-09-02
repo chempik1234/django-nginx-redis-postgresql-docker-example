@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  web:
+    build:
+      context: .
+    env_file:
+      - env/db_django.env
+    ports:
+      - 8000:8000
+    command: sh -c "python manage.py makemigrations &&
+                    python manage.py migrate &&
+                    gunicorn task_project.wsgi --bind=0.0.0.0:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
+  # migrate:
+  #   build:
+  #     context: .
+  #   command: python manage.py migrate
+  #   ports:
+  #     - 8000:8000
+  #   depends_on:
+  #     - web
+  #     - db
+  db:
+    image: postgres:15.1
+    restart: always
+    user: postgres
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      # - ./db/init.sql:/docker-entrypoint-initdb.d/create_role.sql
+    env_file:
+      - env/db.env
+    # expose:
+    #   - 5432
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  cache:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping"]
+      interval: 5s
+      timeout: 1s
+      retries: 3
+  nginx:
+    image: nginx:latest
+    build: ./nginx
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      # - ./nginx/ssl:/etc/nginx/ssl  <-- protocol safety goes to play roblox
+    depends_on:
+      - web
+    ports:
+      - "1337:80"
+    #   - "443:443"
+volumes:
+  db-data:
+  redis-data:
+
